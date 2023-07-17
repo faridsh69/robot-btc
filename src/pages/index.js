@@ -1,26 +1,27 @@
-import { Inter } from "next/font/google";
 import { useState } from "react";
 
 import {
+  calcFee,
   calcMoneyOnClose,
   calcMoneyOnTick,
   closeCondition,
   openCondition,
   openPosition,
+  readFile,
 } from "./helper";
 
-const inter = Inter({ subsets: ["latin"] });
-
 export default function Home() {
-  const [zarib, setZarib] = useState(20);
-  const [amount, setAmount] = useState(250);
-  const [initialMoney, setInitialMoney] = useState(2000);
-  const [sell, setSell] = useState(true);
+  const [zarib, setZarib] = useState(10);
+  const [amount, setAmount] = useState(500);
+  const [initialMoney, setInitialMoney] = useState(1000);
+  const [sell, setSell] = useState(false);
   const [chart, setChart] = useState([]);
   const [balance, setBalance] = useState([]);
+  const stopLoss = 0.4;
 
-  function readCSVFile() {
+  const render = () => {
     // Init Data
+    const balanceArray = [];
     const initialPosition = {
       profit: 0,
       openPrice: 0,
@@ -28,50 +29,47 @@ export default function Home() {
       isOpen: false,
       zarib: zarib,
       amount: amount,
+      stopLoss: stopLoss * -1,
       fee: 0.004,
+      feePrice: zarib * amount * 0.004,
+      sell: sell,
+      sellZarib: sell ? -1 : 1,
     };
-    let money = initialMoney;
-    let position = initialPosition;
-    const chartArray = [];
-    const balanceArray = [];
-    // Render Excel
-    const files = document.querySelector("#file").files;
-    const file = files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.readAsText(file);
-    reader.onload = function (event) {
-      const csvdata = event.target.result;
-      const rowData = csvdata.split("\n");
-      for (let rowIndex = 1; rowIndex < rowData.length; rowIndex++) {
-        const rowColData = rowData[rowIndex].split(",");
-        if (!rowColData[0]) continue;
-        const item = {
-          date: rowColData[0],
-          open: +rowColData[1],
-          hight: +rowColData[2],
-          low: +rowColData[3],
-          close: +rowColData[4].replace("\r", ""),
-        };
-        chartArray.push(item);
+    initialPosition.feePrice = calcFee(initialPosition);
 
-        // Positions
-        position.closePrice = item.open;
-        if (openCondition(item)) {
-          position = openPosition(position, item);
-        }
-        if (closeCondition(item)) {
-          money = calcMoneyOnClose(money, position);
-          position = initialPosition;
-        }
-        money = calcMoneyOnTick(money, position);
-        balanceArray.push(money);
+    let money = initialMoney;
+    let position = { ...initialPosition };
+    const btcData = readFile();
+
+    // Positions
+    for (const candleIndex in btcData) {
+      const candle = btcData[candleIndex];
+      if (openCondition(candle)) {
+        position = openPosition(position, candle);
+      }
+      if (closeCondition(candle)) {
+        money = calcMoneyOnClose(money, position, candle);
+        position = { ...initialPosition, profit: position.profit };
       }
 
-      setChart(chartArray);
-      setBalance(balanceArray);
-    };
-  }
+      [money, position] = calcMoneyOnTick(
+        money,
+        position,
+        candle,
+        initialPosition
+      );
+      balanceArray.push({
+        date: candle.date,
+        money,
+        position: { ...position },
+      });
+    }
+    console.log("1 btcData", btcData);
+    console.log("2 balanceArray", balanceArray);
+    setChart(btcData);
+    setBalance(balanceArray);
+    console.log("3 money", money / initialMoney);
+  };
 
   return (
     <div>
@@ -80,19 +78,19 @@ export default function Home() {
         <input
           type="number"
           value={initialMoney}
-          onChange={(e) => setInitialMoney(e.target.value)}
+          onChange={(e) => setInitialMoney(+e.target.value)}
         />
         <p>amount</p>
         <input
           type="number"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(+e.target.value)}
         />
         <p>zarib</p>
         <input
           type="number"
           value={zarib}
-          onChange={(e) => setZarib(e.target.value)}
+          onChange={(e) => setZarib(+e.target.value)}
         />
         <label htmlFor="sell">sell?</label>
         <input
@@ -102,30 +100,26 @@ export default function Home() {
           onChange={(e) => setSell(e.target.checked)}
         />
         <input type="file" name="file" id="file" accept=".csv" />
-        <input
-          type="button"
-          id="btnsubmit"
-          value="Submit"
-          onClick={readCSVFile}
-        />
+        <input type="button" id="btnsubmit" value="Submit" onClick={render} />
       </div>
-      2023
       <div className="chart">
-        {chart.map((chartData) => (
+        {chart.map((chartData, index) => (
           <div
             key={chartData.date}
             className="chart-col"
-            style={{ height: chartData.open / 200 + "px" }}
-          ></div>
+            style={{ height: chartData.open / 500 + "px" }}
+          >
+            <div className="date">{index % 100 === 0 && chartData.date}</div>
+          </div>
         ))}
       </div>
-      sood
       <div className="chart">
         {balance.map((balanceData) => (
           <div
-            key={balanceData}
+            key={balanceData.date}
             className="chart-col"
-            style={{ height: balanceData / 120 + "px" }}
+            style={{ height: balanceData.money / 200 + "px" }}
+            x={balanceData.money}
           ></div>
         ))}
       </div>
