@@ -1,33 +1,72 @@
 import moment from "moment/moment";
 import jsonBtc from "./btc2020.json";
 
-export const openCondition = (item) => {
-  var dayIndex = moment(item.date).day();
+export const openCondition = (candle, position) => {
+  if (position.isOpen) return false;
 
-  return dayIndex === 0;
+  var dayIndex = moment(candle.date).format("dddd");
+
+  return dayIndex === "Friday";
 };
 
-export const closeCondition = (candle) => {
-  var dayIndex = moment(candle.date).day();
+export const closeCondition = (candle, position) => {
+  if (!position.isOpen) return false;
 
-  return dayIndex === 6;
+  var dayIndex = moment(candle.date).format("dddd");
+
+  return dayIndex === "Thursday";
 };
 
 export const openPosition = (position, candle) => {
-  position.openPrice = candle.open;
-  position.isOpen = true;
-
-  return position;
+  return {
+    ...position,
+    isOpen: true,
+    openPrice: candle.open,
+  };
 };
 
-export const calcFee = (position) => {
-  return position.zarib * position.amount * position.fee;
+export const closePosition = (position, candle) => {
+  if (!position.isOpen) return position;
+
+  const newPosition = {
+    ...position,
+    closePrice: candle.open,
+  };
+  newPosition.profit = calculateProfit(newPosition);
+
+  return newPosition;
 };
 
 export const calcMoneyOnTick = (money, position, candle, initialPosition) => {
-  position.closePrice = candle.open;
+  // If there is no position opened, so dont run
   if (!position.isOpen) return [money, position];
 
+  // checkStopLoss();
+
+  // Reduce previous raise
+  money = money - position.profit;
+
+  const newPosition = {
+    ...position,
+    closePrice: candle.open,
+  };
+
+  newPosition.profit = calculateProfit(newPosition, false);
+  money = money + newPosition.profit;
+
+  return [money, newPosition];
+};
+
+const calculateProfit = (position, calculateFee = true) => {
+  const percentageProfit =
+    (position.closePrice - position.openPrice) / position.openPrice;
+  return (
+    Math.round(percentageProfit * position.volume * position.sellZarib) -
+    (calculateFee ? position.feePrice : 0)
+  );
+};
+
+const checkStopLoss = (position, candle) => {
   if (position.stopLoss) {
     if (!position.sell) {
       if (
@@ -43,50 +82,21 @@ export const calcMoneyOnTick = (money, position, candle, initialPosition) => {
       }
     }
   }
+};
 
+export const checkLiquid = (money, position, candle) => {
   const low =
     money +
     (((position.sell ? candle.high : candle.low) - position.openPrice) /
       position.openPrice) *
-      position.zarib *
-      position.amount *
+      position.volume *
       position.sellZarib;
-  if (low <= 0) {
-    console.log("1 LIQ candle", candle);
-    console.log("1 LIQ position", position);
-    return [0, position];
+
+  if (low <= 0 || money <= 0) {
+    return true;
   }
 
-  position.profit =
-    ((position.closePrice - position.openPrice) / position.openPrice) *
-    position.zarib *
-    position.amount *
-    position.sellZarib;
-
-  money = money + position.profit;
-
-  if (money <= 0) {
-    console.log("2 LIQ candle", candle);
-    console.log("2 LIQ position", position);
-    return [0, position];
-  }
-
-  return [money, position];
-};
-
-export const calcMoneyOnClose = (money, position, candle) => {
-  if (!position.isOpen) return money;
-  position.closePrice = candle.open;
-
-  position.profit =
-    ((position.closePrice - position.openPrice) / position.openPrice) *
-    position.zarib *
-    position.amount *
-    position.sellZarib;
-
-  money = money + position.profit - position.feePrice;
-
-  return money;
+  return false;
 };
 
 export const readFile = () => {
@@ -116,9 +126,11 @@ export const readFile = () => {
         continue;
       }
       chartArray.push(candle);
-      console.log("1 chartArray", JSON.stringify(chartArray));
     }
+    console.log(JSON.stringify(chartArray));
 
     return chartArray;
   };
+
+  return jsonBtc;
 };

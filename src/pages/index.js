@@ -1,55 +1,62 @@
 import { useState } from "react";
 
 import {
-  calcFee,
   calcMoneyOnClose,
   calcMoneyOnTick,
+  checkLiquid,
   closeCondition,
+  closePosition,
   openCondition,
   openPosition,
   readFile,
 } from "./helper";
 
 export default function Home() {
-  const [zarib, setZarib] = useState(10);
-  const [amount, setAmount] = useState(500);
-  const [initialMoney, setInitialMoney] = useState(1000);
-  const [sell, setSell] = useState(false);
+  const [zaribInput, setZarib] = useState(10);
+  const [amountInput, setAmount] = useState(500);
+  const [initialMoneyInput, setInitialMoney] = useState(5000);
+  const [sellInput, setSell] = useState(false);
   const [chart, setChart] = useState([]);
   const [balance, setBalance] = useState([]);
-  const stopLoss = 0.4;
+  const stopLossInput = 0.4;
+  const feeInput = 0.000004;
 
   const render = () => {
     // Init Data
     const balanceArray = [];
+    const positions = [];
     const initialPosition = {
-      profit: 0,
-      openPrice: 0,
-      closePrice: 0,
       isOpen: false,
-      zarib: zarib,
-      amount: amount,
-      stopLoss: stopLoss * -1,
-      fee: 0.004,
-      feePrice: zarib * amount * 0.004,
-      sell: sell,
-      sellZarib: sell ? -1 : 1,
+      profit: null,
+      openPrice: null,
+      closePrice: null,
+      zarib: zaribInput,
+      amount: amountInput,
+      volume: zaribInput * amountInput,
+      stopLoss: stopLossInput * -1,
+      fee: feeInput,
+      feePrice: zaribInput * amountInput * feeInput,
+      sell: sellInput,
+      sellZarib: sellInput ? -1 : 1,
     };
-    initialPosition.feePrice = calcFee(initialPosition);
 
-    let money = initialMoney;
+    let money = initialMoneyInput;
     let position = { ...initialPosition };
     const btcData = readFile();
 
     // Positions
     for (const candleIndex in btcData) {
       const candle = btcData[candleIndex];
-      if (openCondition(candle)) {
+      if (openCondition(candle, position)) {
         position = openPosition(position, candle);
+      } else if (closeCondition(candle, position)) {
+        positions.push(position);
+        money = money + closePosition(position, candle).profit;
+        position = { ...initialPosition };
       }
-      if (closeCondition(candle)) {
-        money = calcMoneyOnClose(money, position, candle);
-        position = { ...initialPosition, profit: position.profit };
+
+      if (checkLiquid(money, position, candle)) {
+        break;
       }
 
       [money, position] = calcMoneyOnTick(
@@ -58,6 +65,7 @@ export default function Home() {
         candle,
         initialPosition
       );
+
       balanceArray.push({
         date: candle.date,
         money,
@@ -66,9 +74,11 @@ export default function Home() {
     }
     console.log("1 btcData", btcData);
     console.log("2 balanceArray", balanceArray);
+    console.log("3 positions", positions);
+
     setChart(btcData);
     setBalance(balanceArray);
-    console.log("3 money", money / initialMoney);
+    console.log("4 money", money / initialMoneyInput);
   };
 
   return (
@@ -77,26 +87,26 @@ export default function Home() {
         <p>initialMoney</p>
         <input
           type="number"
-          value={initialMoney}
+          value={initialMoneyInput}
           onChange={(e) => setInitialMoney(+e.target.value)}
         />
         <p>amount</p>
         <input
           type="number"
-          value={amount}
+          value={amountInput}
           onChange={(e) => setAmount(+e.target.value)}
         />
         <p>zarib</p>
         <input
           type="number"
-          value={zarib}
+          value={zaribInput}
           onChange={(e) => setZarib(+e.target.value)}
         />
         <label htmlFor="sell">sell?</label>
         <input
           id="sell"
           type="checkbox"
-          checked={sell}
+          checked={sellInput}
           onChange={(e) => setSell(e.target.checked)}
         />
         <input type="file" name="file" id="file" accept=".csv" />
