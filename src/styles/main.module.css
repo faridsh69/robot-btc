@@ -4,9 +4,6 @@
   gap: 20px;
   align-items: center;
 }
-input {
-  padding: 10px;
-}
 .chart {
   width: 90%;
   height: 200px;
@@ -16,7 +13,7 @@ input {
   gap: 1px;
 }
 
-.chart-col {
+.chart_col {
   width: 1px;
   background: red;
 }
