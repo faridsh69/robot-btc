@@ -9,9 +9,10 @@ import {
   openPosition,
   readFile,
 } from "../assets/helper";
+import { TIME_FRAMES } from "@/assets/constants";
 
 export default function Home() {
-  const [timeframe, setTimefram] = useState("1 day");
+  const [timeframe, setTimefram] = useState(TIME_FRAMES.oneHour);
   const [zaribInput, setZarib] = useState(10);
   const [amountInput, setAmount] = useState(500);
   const [initialMoneyInput, setInitialMoney] = useState(5000);
@@ -23,7 +24,7 @@ export default function Home() {
 
   // read selected file or use saved data
   const start = () => {
-    readFile(startBackTest);
+    readFile(startBackTest, timeframe);
   };
 
   const startBackTest = (candles) => {
@@ -78,11 +79,11 @@ export default function Home() {
         position,
       });
     }
-    setCandlesChart(candles);
-    setEquityChart(equityArray);
+    setCandlesChart(candles.slice(0, 10000));
+    setEquityChart(equityArray.slice(0, 10000));
     console.log("1 candles", candles);
     console.log("2 equityArray", equityArray);
-    // console.log("3 positions", positions);
+    console.log("3 positions", positions);
     // console.log("4 equity", equity / initialMoneyInput);
     console.log(
       "4 equityOutOfPosition",
@@ -122,37 +123,38 @@ export default function Home() {
         <input type="button" id="btnsubmit" value="Start" onClick={start} />
         <br />
         <select value={timeframe} onChange={(e) => setTimefram(e.target.value)}>
-          <option value="1 day">1 day</option>
-          <option value="4 hour">4 hour</option>
-          <option value="1 hour">1 hour</option>
-          <option value="30 min">30 min</option>
-          <option value="15 min">15 min</option>
-          <option value="5 min">5 min</option>
-          <option value="1 min">1 min</option>
+          {Object.values(TIME_FRAMES).map((tf) => (
+            <option value={tf} key={tf}>
+              {tf}
+            </option>
+          ))}
         </select>
       </div>
       CandlesChart
       <div className={styles.chart}>
-        {candlesChart.map((candle, index) => (
+        {candlesChart.map((candle, candleIndex) => (
           <div
             key={candle.date}
             className={styles.chart_col}
             style={{ height: candle.open / 500 + "px" }}
           >
             <div className={styles.date}>
-              {index % 100 === 0 && candle.date}
+              {candleIndex % 80 === 0 && candle.date.substring(0, 7)}
             </div>
           </div>
         ))}
       </div>
-      EquityChart
       <div className={styles.chart}>
-        {equityChart.map((equity) => (
+        {equityChart.map((equity, equityIndex) => (
           <div
             key={equity.date}
             className={styles.chart_col}
             style={{ height: equity.equity / 200 + "px" }}
-          ></div>
+          >
+            <div className={styles.date}>
+              {equityIndex % 80 === 0 && equity.date.substring(0, 7)}
+            </div>
+          </div>
         ))}
       </div>
     </div>

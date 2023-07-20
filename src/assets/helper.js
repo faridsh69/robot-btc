@@ -1,13 +1,21 @@
 import moment from "moment/moment";
-// import savedCandles from "./btc2020.json";
+import { TIME_FRAMES } from "./constants";
+import savedCandlesWeekly from "../sources/BTCUSD8-1w.json";
+import savedCandlesDaily from "../sources/BTCUSD8-1d.json";
+import savedCandlesfourHours from "../sources/BTCUSD8-4h.json";
+import savedCandlesoneHour from "../sources/BTCUSD8-1h.json";
+import savedCandlesthirtyMin from "../sources/BTCUSD8-30m.json";
+import savedCandlesfifteenMin from "../sources/BTCUSD8-15m.json";
+import savedCandlesfiveMin from "../sources/BTCUSD8-5m.json";
+import savedCandlesoneMin from "../sources/BTCUSD8-1m.json";
 
-export const readFile = (startBackTest) => {
+export const readFile = (startBackTest, timeframe) => {
   const files = document.querySelector("#file").files;
   const file = files[0];
-  // if (!file) {
-  //   startBackTest(savedCandles);
-  //   return;
-  // }
+  if (!file) {
+    startBackTest(getSavedCandles(timeframe));
+    return;
+  }
   const reader = new FileReader();
   reader.readAsText(file);
   reader.onload = (event) => {
@@ -16,28 +24,37 @@ export const readFile = (startBackTest) => {
   };
 };
 
+const getSavedCandles = (timeframe) => {
+  if (timeframe === TIME_FRAMES.weekly) return savedCandlesWeekly;
+  if (timeframe === TIME_FRAMES.daily) return savedCandlesDaily;
+  if (timeframe === TIME_FRAMES.fourHours) return savedCandlesfourHours;
+  if (timeframe === TIME_FRAMES.oneHour) return savedCandlesoneHour;
+  if (timeframe === TIME_FRAMES.thirtyMin) return savedCandlesthirtyMin;
+  if (timeframe === TIME_FRAMES.fifteenMin) return savedCandlesfifteenMin;
+  if (timeframe === TIME_FRAMES.fiveMin) return savedCandlesfiveMin;
+  if (timeframe === TIME_FRAMES.oneMin) return savedCandlesoneMin;
+};
+
 const convertExcelToArray = (event) => {
   const csvData = event.target.result;
   const rowData = csvData.split("\n");
-  const reversedRowData = rowData.reverse();
-  console.log("1 reversedRowData", reversedRowData);
+  // const reversedRowData = rowData.reverse();
+  // console.log("1 reversedRowData", reversedRowData);
   const candles = [];
 
-  for (let rowIndex = 1; rowIndex < reversedRowData.length; rowIndex++) {
-    const tickRawData = reversedRowData[rowIndex].split(",");
+  for (let rowIndex = 1; rowIndex < rowData.length; rowIndex++) {
+    const tickRawData = rowData[rowIndex].split(",");
     const candle = {
-      date: tickRawData[0],
-      open: +tickRawData[1],
-      hight: +tickRawData[2],
-      low: +tickRawData[3],
-      close: +tickRawData[4].replace("\r", ""),
+      date: tickRawData[0] + " " + tickRawData[1],
+      open: +tickRawData[2],
+      hight: +tickRawData[3],
+      low: +tickRawData[4],
+      close: +tickRawData[5],
     };
 
-    if (!candle.date || moment(candle.date).diff(moment("01/05/2020")) < 0) {
-      continue;
-    }
     candles.push(candle);
   }
+  console.log("1 candles", JSON.stringify(candles));
   return candles;
 };
 
