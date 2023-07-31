@@ -54,22 +54,49 @@ const convertExcelToArray = (event) => {
 
     candles.push(candle);
   }
+
   console.log("1 candles", JSON.stringify(candles));
   return candles;
+};
+
+export const renderResultOfPositions = (positions) => {
+  let success = 0,
+    fault = 0,
+    profit = 0,
+    damage = 0;
+  for (const position of positions) {
+    if (position.profit > 0) {
+      profit += position.profit;
+      success++;
+    }
+    if (position.profit < 0) {
+      damage += position.profit;
+      fault++;
+    }
+  }
+
+  return {
+    success,
+    fault,
+    profit,
+    damage,
+    all: positions.length,
+    total: profit + damage,
+  };
 };
 
 export const openPosition = (position, candle) => {
   return {
     ...position,
     isOpen: true,
-    openPrice: candle.open,
+    openPrice: candle.close,
   };
 };
 
 export const closePosition = (position, candle) => {
   const newPosition = {
     ...position,
-    closePrice: candle.open,
+    closePrice: candle.close,
   };
   newPosition.profit = calculateProfit(newPosition);
   return newPosition;
@@ -93,38 +120,39 @@ const calculateProfit = (position, calculateFee = true) => {
   return Math.floor(profit * position.sellZarib - fee);
 };
 
-// const checkStopLoss = (position, candle) => {
-//   if (position.stopLoss) {
-//     if (!position.sell) {
-//       if (
-//         (candle.low - position.openPrice) / position.openPrice <
-//         position.stopLoss
-//       ) {
-//         position.profit = position.stopLoss * position.zarib * position.amount;
+export const checkStopLoss = (position, candle) => {
+  if (!position.stopLoss || position.sell) return position;
 
-//         position = { ...initialPosition, profit: position.profit };
-//         console.log("STOP candle", candle);
-//         console.log("STOP position", position);
-//         return [money + position.profit - position.feePrice, { ...position }];
-//       }
-//     }
-//   }
-// };
+  const worstDamage = calcProfitOnTick(position, { open: candle.low });
+  if (worstDamage < -1 * position.stopLoss * position.volume) {
+    return {
+      ...position,
+      isOpen: false,
+      profit: -1 * position.stopLoss * position.volume,
+      closePrice: "stop loss",
+    };
+  }
+  const partialProfit = calcProfitOnTick(position, candle);
+  const percentProfit = partialProfit / position.volume;
 
-// export const checkLiquid = (money, position, candle) => {
-//   const low =
-//     money +
-//     (((position.sell ? candle.high : candle.low) - position.openPrice) /
-//       position.openPrice) *
-//       position.volume *
-//       position.sellZarib;
+  if (percentProfit > Math.abs(position.stopLoss)) {
+    const n = Math.floor(percentProfit / Math.abs(position.stopLoss));
+    return {
+      ...position,
+      stopLoss: -1 * (n - 1) * Math.abs(position.stopLoss),
+    };
+  }
 
-//   if (low <= 0 || money <= 0) {
-//     return true;
-//   }
+  return position;
+};
 
-//   return false;
-// };
+export const checkLiquid = (equityOutOfPosition, position, candle) => {
+  const worstCase = !position.sell
+    ? { open: candle.low }
+    : { open: candle.high };
+
+  return equityOutOfPosition + calcProfitOnTick(position, worstCase) < 0;
+};
 
 export const closeCondition = (candle, position) => {
   if (!position.isOpen) return false;

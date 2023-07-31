@@ -3,24 +3,36 @@ import styles from "../styles/main.module.css";
 
 import {
   calcProfitOnTick,
+  checkLiquid,
+  checkStopLoss,
   closeCondition,
   closePosition,
   openCondition,
   openPosition,
   readFile,
+  renderResultOfPositions,
 } from "../assets/helper";
 import { TIME_FRAMES } from "@/assets/constants";
 
 export default function Home() {
-  const [timeframe, setTimefram] = useState(TIME_FRAMES.oneHour);
-  const [zaribInput, setZarib] = useState(10);
-  const [amountInput, setAmount] = useState(500);
-  const [initialMoneyInput, setInitialMoney] = useState(5000);
-  const [sellInput, setSell] = useState(false);
+  const initialData = {
+    stopLoss: 0.01,
+    trailingStopLoss: true,
+    timeframe: TIME_FRAMES.daily,
+    zarib: 10,
+    amount: 500,
+    money: 5000,
+    sell: false,
+    fee: 0.0006, // 0.0200% + 0.0400%
+  };
+  const [timeframe, setTimefram] = useState(initialData.timeframe);
+  const [zaribInput, setZarib] = useState(initialData.zarib);
+  const [amountInput, setAmount] = useState(initialData.amount);
+  const [initialMoneyInput, setInitialMoney] = useState(initialData.money);
+  const [sellInput, setSell] = useState(initialData.sell);
   const [candlesChart, setCandlesChart] = useState([]);
   const [equityChart, setEquityChart] = useState([]);
-  const stopLossInput = 0.4;
-  const feeInput = 0.0006; // 0.0200% + 0.0400%
+  const [result, setResult] = useState({});
 
   // read selected file or use saved data
   const start = () => {
@@ -30,6 +42,7 @@ export default function Home() {
   const startBackTest = (candles) => {
     // Init Data
     const initialPosition = {
+      stopLoss: initialData.stopLoss,
       isOpen: false,
       profit: null,
       openPrice: null,
@@ -37,9 +50,9 @@ export default function Home() {
       zarib: zaribInput,
       amount: amountInput,
       volume: zaribInput * amountInput,
-      stopLoss: stopLossInput * -1,
-      fee: feeInput,
-      feePrice: zaribInput * amountInput * feeInput,
+      trailingStopLoss: initialData.trailingStopLoss,
+      fee: initialData.fee,
+      feePrice: zaribInput * amountInput * initialData.fee,
       sell: sellInput,
       sellZarib: sellInput ? -1 : 1,
     };
@@ -54,41 +67,40 @@ export default function Home() {
       const candle = candles[candleIndex];
       if (openCondition(candle, position)) {
         position = openPosition(position, candle);
-        continue;
-      }
-
-      if (closeCondition(candle, position)) {
+      } else if (closeCondition(candle, position)) {
         position = closePosition(position, candle);
         equityOutOfPosition = equityOutOfPosition + position.profit;
         equity = equityOutOfPosition;
         positions.push(position);
         position = { ...initialPosition };
-        continue;
+      } else if (position.isOpen) {
+        position = checkStopLoss(position, candle);
+        if (!position.isOpen) {
+          equityOutOfPosition = equityOutOfPosition + position.profit;
+          equity = equityOutOfPosition;
+          positions.push(position);
+          position = { ...initialPosition };
+        } else {
+          if (checkLiquid(equityOutOfPosition, position, candle)) {
+            alert("LIQUID");
+            break;
+          }
+          equity = equityOutOfPosition + calcProfitOnTick(position, candle);
+        }
       }
-
-      if (position.isOpen) {
-        equity = equityOutOfPosition + calcProfitOnTick(position, candle);
-      }
-      // if (checkLiquid(money, position, candle)) {
-      //   alert("LIQUID");
-      //   break;
-      // }
-      equityArray.push({
-        date: candle.date,
-        equity: equityOutOfPosition,
-        position,
-      });
+      equityArray.push({ date: candle.date, equity });
     }
     setCandlesChart(candles.slice(0, 10000));
     setEquityChart(equityArray.slice(0, 10000));
+    setResult(renderResultOfPositions(positions));
     console.log("1 candles", candles);
     console.log("2 equityArray", equityArray);
     console.log("3 positions", positions);
-    // console.log("4 equity", equity / initialMoneyInput);
     console.log(
-      "4 equityOutOfPosition",
+      "4 equityOutOfPosition / initialMoneyInput",
       equityOutOfPosition / initialMoneyInput
     );
+    console.log("5 equityOutOfPosition", equityOutOfPosition);
   };
 
   return (
@@ -129,6 +141,7 @@ export default function Home() {
             </option>
           ))}
         </select>
+        {JSON.stringify(result)}
       </div>
       CandlesChart
       <div className={styles.chart}>
@@ -149,7 +162,9 @@ export default function Home() {
           <div
             key={equity.date}
             className={styles.chart_col}
-            style={{ height: equity.equity / 200 + "px" }}
+            style={{
+              height: equity.equity / (0.04 * initialMoneyInput) + "px",
+            }}
           >
             <div className={styles.date}>
               {equityIndex % 80 === 0 && equity.date.substring(0, 7)}
