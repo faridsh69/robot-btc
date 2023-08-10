@@ -15,9 +15,9 @@ import {
 import { TIME_FRAMES } from "@/assets/constants";
 
 export default function Home() {
-  useEffect(() => {
-    start();
-  }, []);
+  // useEffect(() => {
+  //   start();
+  // }, []);
 
   const initialData = {
     stopLoss: 0.01,
@@ -96,17 +96,19 @@ export default function Home() {
       }
       equityArray.push({ date: candle.date, equity });
     }
-    setCandlesChart(candles.slice(0, 10000));
-    setEquityChart(equityArray.slice(0, 10000));
-    setResult(renderResultOfPositions(positions, candles));
+    setCandlesChart(candles);
+    setEquityChart(equityArray);
+    setResult(
+      renderResultOfPositions(
+        positions,
+        candles,
+        initialMoneyInput,
+        equityOutOfPosition
+      )
+    );
     console.log("1 candles", candles);
     console.log("2 equityArray", equityArray);
     console.log("3 positions", positions);
-    console.log(
-      "4 equityOutOfPosition / initialMoneyInput",
-      equityOutOfPosition / initialMoneyInput
-    );
-    console.log("5 equityOutOfPosition", equityOutOfPosition);
   };
 
   return (
@@ -115,21 +117,34 @@ export default function Home() {
         <p>initialMoney</p>
         <input
           type="number"
+          className={styles.input}
           value={initialMoneyInput}
           onChange={(e) => setInitialMoney(+e.target.value)}
         />
         <p>amount</p>
         <input
           type="number"
+          className={styles.input}
           value={amountInput}
           onChange={(e) => setAmount(+e.target.value)}
         />
+
         <p>zarib</p>
         <input
           type="number"
+          className={styles.input}
           value={zaribInput}
           onChange={(e) => setZarib(+e.target.value)}
         />
+
+        <select value={timeframe} onChange={(e) => setTimefram(e.target.value)}>
+          {Object.values(TIME_FRAMES).map((tf) => (
+            <option value={tf} key={tf}>
+              {tf}
+            </option>
+          ))}
+        </select>
+
         <label htmlFor="sell">sell?</label>
         <input
           id="sell"
@@ -139,44 +154,44 @@ export default function Home() {
         />
         <input type="file" name="file" id="file" accept=".csv" />
         <input type="button" id="btnsubmit" value="Start" onClick={start} />
-        <br />
-        <select value={timeframe} onChange={(e) => setTimefram(e.target.value)}>
-          {Object.values(TIME_FRAMES).map((tf) => (
-            <option value={tf} key={tf}>
-              {tf}
-            </option>
-          ))}
-        </select>
-        {JSON.stringify(result)}
       </div>
-      CandlesChart
+      {JSON.stringify(result)}
+      <br />
+      <br />
+      CandlesChart (0 - 100,000)
       <div className={styles.chart}>
-        {candlesChart.map((candle, candleIndex) => (
-          <div
-            key={candle.date}
-            className={styles.chart_col}
-            style={{ height: candle.open / 500 + "px" }}
-          >
-            <div className={styles.date}>
-              {candleIndex % 80 === 0 && candle.date.substring(0, 7)}
+        {candlesChart.map((candle, candleIndex) => {
+          if (candleIndex % (candlesChart.length / 1000) > 1) return null;
+          return (
+            <div
+              key={candle.date}
+              className={styles.chart_col}
+              style={{ height: candle.open / 500 + "px" }}
+            >
+              <div className={styles.date}>
+                {candleIndex === 0 && candle.date.substring(0, 7)}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      EQuity (0 - 8X)
       <div className={styles.chart}>
-        {equityChart.map((equity, equityIndex) => (
-          <div
-            key={equity.date}
-            className={styles.chart_col}
-            style={{
-              height: equity.equity / (0.04 * initialMoneyInput) + "px",
-            }}
-          >
-            <div className={styles.date}>
-              {equityIndex % 80 === 0 && equity.date.substring(0, 7)}
+        {equityChart.map((equity, equityIndex) => {
+          if (equityIndex % (equityChart.length / 1000) > 1) return null;
+
+          return (
+            <div
+              key={equity.date}
+              className={styles.chart_col}
+              style={{
+                height: equity.equity / (0.04 * initialMoneyInput) + "px",
+              }}
+            >
+              <div className={styles.date}></div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

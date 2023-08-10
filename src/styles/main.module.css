@@ -40,3 +40,7 @@
   border-radius: 10px;
   background: #ccc;
 }
+
+.input {
+  width: 100px !important;
+}

@@ -1,13 +1,22 @@
 import moment from "moment/moment";
 import { TIME_FRAMES } from "./constants";
-import savedCandlesWeekly from "../sources/BTCUSD8-1w.json";
-import savedCandlesDaily from "../sources/BTCUSD8-1d.json";
-import savedCandlesfourHours from "../sources/BTCUSD8-4h.json";
-import savedCandlesoneHour from "../sources/BTCUSD8-1h.json";
-import savedCandlesthirtyMin from "../sources/BTCUSD8-30m.json";
-import savedCandlesfifteenMin from "../sources/BTCUSD8-15m.json";
-import savedCandlesfiveMin from "../sources/BTCUSD8-5m.json";
-import savedCandlesoneMin from "../sources/BTCUSD8-1m.json";
+import savedCandlesWeeklyBtc from "../sources/1-1-BTCUSD-1w.json";
+import savedCandlesDailyBtc from "../sources/1-2-BTCUSD-1d.json";
+import savedCandlesfourHoursBtc from "../sources/1-3-BTCUSD-4h.json";
+import savedCandlesoneHourBtc from "../sources/1-4-BTCUSD-1h.json";
+import savedCandlesthirtyMinBtc from "../sources/1-5-BTCUSD-30m.json";
+import savedCandlesfifteenMinBtc from "../sources/1-6-BTCUSD-15m.json";
+import savedCandlesfiveMinBtc from "../sources/1-7-BTCUSD-5m.json";
+import savedCandlesoneMinBtc from "../sources/1-8-BTCUSD-1m.json";
+
+import savedCandlesWeeklyLtc from "../sources/2-1-LTCUSD-1w.json";
+import savedCandlesDailyLtc from "../sources/2-2-LTCUSD-1d.json";
+import savedCandlesfourHoursLtc from "../sources/2-3-LTCUSD-4h.json";
+import savedCandlesoneHourLtc from "../sources/2-4-LTCUSD-1h.json";
+import savedCandlesthirtyMinLtc from "../sources/2-5-LTCUSD-30m.json";
+import savedCandlesfifteenMinLtc from "../sources/2-6-LTCUSD-15m.json";
+import savedCandlesfiveMinLtc from "../sources/2-7-LTCUSD-5m.json";
+import savedCandlesoneMinLtc from "../sources/2-8-LTCUSD-1m.json";
 
 export const readFile = (startBackTest, timeframe) => {
   const files = document.querySelector("#file").files;
@@ -25,14 +34,14 @@ export const readFile = (startBackTest, timeframe) => {
 };
 
 const getSavedCandles = (timeframe) => {
-  if (timeframe === TIME_FRAMES.weekly) return savedCandlesWeekly;
-  if (timeframe === TIME_FRAMES.daily) return savedCandlesDaily;
-  if (timeframe === TIME_FRAMES.fourHours) return savedCandlesfourHours;
-  if (timeframe === TIME_FRAMES.oneHour) return savedCandlesoneHour;
-  if (timeframe === TIME_FRAMES.thirtyMin) return savedCandlesthirtyMin;
-  if (timeframe === TIME_FRAMES.fifteenMin) return savedCandlesfifteenMin;
-  if (timeframe === TIME_FRAMES.fiveMin) return savedCandlesfiveMin;
-  if (timeframe === TIME_FRAMES.oneMin) return savedCandlesoneMin;
+  if (timeframe === TIME_FRAMES.weekly) return savedCandlesWeeklyBtc;
+  if (timeframe === TIME_FRAMES.daily) return savedCandlesDailyBtc;
+  if (timeframe === TIME_FRAMES.fourHours) return savedCandlesfourHoursBtc;
+  if (timeframe === TIME_FRAMES.oneHour) return savedCandlesoneHourBtc;
+  if (timeframe === TIME_FRAMES.thirtyMin) return savedCandlesthirtyMinBtc;
+  if (timeframe === TIME_FRAMES.fifteenMin) return savedCandlesfifteenMinBtc;
+  if (timeframe === TIME_FRAMES.fiveMin) return savedCandlesfiveMinBtc;
+  if (timeframe === TIME_FRAMES.oneMin) return savedCandlesoneMinBtc;
 };
 
 const convertExcelToArray = (event) => {
@@ -59,7 +68,12 @@ const convertExcelToArray = (event) => {
   return candles;
 };
 
-export const renderResultOfPositions = (positions, candles) => {
+export const renderResultOfPositions = (
+  positions,
+  candles,
+  initialMoneyInput,
+  equityOutOfPosition
+) => {
   let success = 0,
     fault = 0,
     profit = 0,
@@ -84,15 +98,22 @@ export const renderResultOfPositions = (positions, candles) => {
     }
   }
 
+  const zaribeSood = roundNumber(equityOutOfPosition / initialMoneyInput);
+  const winRate = roundNumber(success / (success + fault));
+
   return {
+    zaribeSood,
+    winRate,
+    equityOutOfPosition,
     success,
     fault,
     profit,
     damage,
-    all: positions.length,
-    total: profit + damage,
-    momentumCandles,
+    allPositions: positions.length,
+    totalProfit: profit + damage,
     totalCandles,
+    startPrice: candles[0].open,
+    FinalPrice: candles[candles.length - 1].open,
   };
 };
 
@@ -169,14 +190,20 @@ export const checkLiquid = (equityOutOfPosition, position, candle) => {
   return equityOutOfPosition + calcProfitOnTick(position, worstCase) < 0;
 };
 
-export const closeCondition = (position, candles, candleIndex) => {
-  if (!position.isOpen) return false;
+const isMomentumCandle = (candle) => {
+  return Math.abs(candle.close - candle.open) > (candle.high - candle.low) / 2;
+};
 
-  // const lastCandles = candles.slice(candleIndex - 4, candleIndex + 1);
-  // const filterLastRallyCandles = lastCandles.filter((c) => isDropCandle(c));
+const isRallyCandle = (candle) => {
+  return candle.close - candle.open > 0;
+};
 
-  // return filterLastRallyCandles.length > 4;
-  return false;
+const isDropCandle = (candle) => {
+  return candle.close - candle.open < 0;
+};
+
+const roundNumber = (number, digits = 2) => {
+  return number.toFixed(digits);
 };
 
 export const openCondition = (position, candles, candleIndex) => {
@@ -188,14 +215,12 @@ export const openCondition = (position, candles, candleIndex) => {
   return filterLastRallyCandles.length > 4;
 };
 
-export const isMomentumCandle = (candle) => {
-  return Math.abs(candle.close - candle.open) > (candle.high - candle.low) / 2;
-};
+export const closeCondition = (position, candles, candleIndex) => {
+  if (!position.isOpen) return false;
 
-export const isRallyCandle = (candle) => {
-  return candle.close - candle.open > 0;
-};
+  // const lastCandles = candles.slice(candleIndex - 4, candleIndex + 1);
+  // const filterLastRallyCandles = lastCandles.filter((c) => isDropCandle(c));
 
-export const isDropCandle = (candle) => {
-  return candle.close - candle.open < 0;
+  // return filterLastRallyCandles.length > 4;
+  return false;
 };
