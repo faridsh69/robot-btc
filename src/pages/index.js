@@ -44,7 +44,10 @@ export default function Home() {
     readFile(startBackTest, timeframe);
   };
 
-  const startBackTest = (candles) => {
+  const startBackTest = (candles, altCoinCandles) => {
+    console.log("1 candles", candles);
+    console.log("2 altCoinCandles", altCoinCandles);
+    return;
     // Init Data
     const initialPosition = {
       stopLoss: -1 * initialData.stopLoss * zaribInput * amountInput,

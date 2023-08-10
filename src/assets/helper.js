@@ -1,28 +1,20 @@
 import moment from "moment/moment";
-import { TIME_FRAMES } from "./constants";
-import savedCandlesWeeklyBtc from "../sources/1-1-BTCUSD-1w.json";
-import savedCandlesDailyBtc from "../sources/1-2-BTCUSD-1d.json";
-import savedCandlesfourHoursBtc from "../sources/1-3-BTCUSD-4h.json";
-import savedCandlesoneHourBtc from "../sources/1-4-BTCUSD-1h.json";
-import savedCandlesthirtyMinBtc from "../sources/1-5-BTCUSD-30m.json";
-import savedCandlesfifteenMinBtc from "../sources/1-6-BTCUSD-15m.json";
-import savedCandlesfiveMinBtc from "../sources/1-7-BTCUSD-5m.json";
-import savedCandlesoneMinBtc from "../sources/1-8-BTCUSD-1m.json";
-
-import savedCandlesWeeklyLtc from "../sources/2-1-LTCUSD-1w.json";
-import savedCandlesDailyLtc from "../sources/2-2-LTCUSD-1d.json";
-import savedCandlesfourHoursLtc from "../sources/2-3-LTCUSD-4h.json";
-import savedCandlesoneHourLtc from "../sources/2-4-LTCUSD-1h.json";
-import savedCandlesthirtyMinLtc from "../sources/2-5-LTCUSD-30m.json";
-import savedCandlesfifteenMinLtc from "../sources/2-6-LTCUSD-15m.json";
-import savedCandlesfiveMinLtc from "../sources/2-7-LTCUSD-5m.json";
-import savedCandlesoneMinLtc from "../sources/2-8-LTCUSD-1m.json";
+import {
+  BTC_COIN,
+  COINS,
+  LTC_COIN,
+  SAVED_CANDLES,
+  TIME_FRAMES,
+} from "./constants";
 
 export const readFile = (startBackTest, timeframe) => {
   const files = document.querySelector("#file").files;
   const file = files[0];
   if (!file) {
-    startBackTest(getSavedCandles(timeframe));
+    startBackTest(
+      getSavedCandles(timeframe, COINS.btc),
+      getSavedCandles(timeframe, COINS.ltc)
+    );
     return;
   }
   const reader = new FileReader();
@@ -33,15 +25,10 @@ export const readFile = (startBackTest, timeframe) => {
   };
 };
 
-const getSavedCandles = (timeframe) => {
-  if (timeframe === TIME_FRAMES.weekly) return savedCandlesWeeklyBtc;
-  if (timeframe === TIME_FRAMES.daily) return savedCandlesDailyBtc;
-  if (timeframe === TIME_FRAMES.fourHours) return savedCandlesfourHoursBtc;
-  if (timeframe === TIME_FRAMES.oneHour) return savedCandlesoneHourBtc;
-  if (timeframe === TIME_FRAMES.thirtyMin) return savedCandlesthirtyMinBtc;
-  if (timeframe === TIME_FRAMES.fifteenMin) return savedCandlesfifteenMinBtc;
-  if (timeframe === TIME_FRAMES.fiveMin) return savedCandlesfiveMinBtc;
-  if (timeframe === TIME_FRAMES.oneMin) return savedCandlesoneMinBtc;
+const getSavedCandles = (timeframe = TIME_FRAMES.weekly, coin = COINS.btc) => {
+  const candles = SAVED_CANDLES[coin][timeframe];
+
+  return candles;
 };
 
 const convertExcelToArray = (event) => {
