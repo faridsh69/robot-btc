@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "../styles/main.module.css";
 
 import {
@@ -15,16 +15,21 @@ import {
 import { TIME_FRAMES } from "@/assets/constants";
 
 export default function Home() {
+  useEffect(() => {
+    start();
+  }, []);
+
   const initialData = {
     stopLoss: 0.01,
     trailingStopLoss: true,
-    timeframe: TIME_FRAMES.daily,
+    timeframe: TIME_FRAMES.fifteenMin,
     zarib: 10,
     amount: 500,
     money: 5000,
     sell: false,
-    fee: 0.0006, // 0.0200% + 0.0400%
+    fee: 0.0006, // 0.400%
   };
+
   const [timeframe, setTimefram] = useState(initialData.timeframe);
   const [zaribInput, setZarib] = useState(initialData.zarib);
   const [amountInput, setAmount] = useState(initialData.amount);
@@ -42,7 +47,7 @@ export default function Home() {
   const startBackTest = (candles) => {
     // Init Data
     const initialPosition = {
-      stopLoss: initialData.stopLoss,
+      stopLoss: -1 * initialData.stopLoss * zaribInput * amountInput,
       isOpen: false,
       profit: null,
       openPrice: null,
@@ -63,11 +68,12 @@ export default function Home() {
     // Calculate Positions
     let position = { ...initialPosition };
     const positions = [];
+
     for (const candleIndex in candles) {
       const candle = candles[candleIndex];
-      if (openCondition(candle, position)) {
+      if (openCondition(position, candles, +candleIndex)) {
         position = openPosition(position, candle);
-      } else if (closeCondition(candle, position)) {
+      } else if (closeCondition(position, candles, +candleIndex)) {
         position = closePosition(position, candle);
         equityOutOfPosition = equityOutOfPosition + position.profit;
         equity = equityOutOfPosition;
@@ -92,7 +98,7 @@ export default function Home() {
     }
     setCandlesChart(candles.slice(0, 10000));
     setEquityChart(equityArray.slice(0, 10000));
-    setResult(renderResultOfPositions(positions));
+    setResult(renderResultOfPositions(positions, candles));
     console.log("1 candles", candles);
     console.log("2 equityArray", equityArray);
     console.log("3 positions", positions);

@@ -47,7 +47,7 @@ const convertExcelToArray = (event) => {
     const candle = {
       date: tickRawData[0] + " " + tickRawData[1],
       open: +tickRawData[2],
-      hight: +tickRawData[3],
+      high: +tickRawData[3],
       low: +tickRawData[4],
       close: +tickRawData[5],
     };
@@ -59,7 +59,7 @@ const convertExcelToArray = (event) => {
   return candles;
 };
 
-export const renderResultOfPositions = (positions) => {
+export const renderResultOfPositions = (positions, candles) => {
   let success = 0,
     fault = 0,
     profit = 0,
@@ -75,6 +75,15 @@ export const renderResultOfPositions = (positions) => {
     }
   }
 
+  let momentumCandles = 0,
+    totalCandles = 0;
+  for (const candle of candles) {
+    totalCandles++;
+    if (isMomentumCandle(candle)) {
+      momentumCandles++;
+    }
+  }
+
   return {
     success,
     fault,
@@ -82,6 +91,8 @@ export const renderResultOfPositions = (positions) => {
     damage,
     all: positions.length,
     total: profit + damage,
+    momentumCandles,
+    totalCandles,
   };
 };
 
@@ -98,7 +109,10 @@ export const closePosition = (position, candle) => {
     ...position,
     closePrice: candle.close,
   };
-  newPosition.profit = calculateProfit(newPosition);
+  const profit = calculateProfit(newPosition);
+  newPosition.profit =
+    profit > position.stopLoss ? profit : position.stopLoss - position.feePrice;
+
   return newPosition;
 };
 
@@ -121,25 +135,26 @@ const calculateProfit = (position, calculateFee = true) => {
 };
 
 export const checkStopLoss = (position, candle) => {
-  if (!position.stopLoss || position.sell) return position;
+  if (position.stopLoss === null) return position;
 
   const worstDamage = calcProfitOnTick(position, { open: candle.low });
-  if (worstDamage < -1 * position.stopLoss * position.volume) {
+  // Check to close position on stop loss
+  if (worstDamage < position.stopLoss) {
     return {
       ...position,
       isOpen: false,
-      profit: -1 * position.stopLoss * position.volume,
-      closePrice: "stop loss",
+      profit: position.stopLoss - position.feePrice,
+      closePrice: candle.low,
     };
   }
-  const partialProfit = calcProfitOnTick(position, candle);
-  const percentProfit = partialProfit / position.volume;
 
-  if (percentProfit > Math.abs(position.stopLoss)) {
-    const n = Math.floor(percentProfit / Math.abs(position.stopLoss));
+  // trailing stop loss
+  const partialProfit = calcProfitOnTick(position, candle);
+  const n = Math.floor(partialProfit / Math.abs(position.stopLoss));
+  if (n > 2) {
     return {
       ...position,
-      stopLoss: -1 * (n - 1) * Math.abs(position.stopLoss),
+      stopLoss: (n - 1) * Math.abs(position.stopLoss),
     };
   }
 
@@ -154,18 +169,33 @@ export const checkLiquid = (equityOutOfPosition, position, candle) => {
   return equityOutOfPosition + calcProfitOnTick(position, worstCase) < 0;
 };
 
-export const closeCondition = (candle, position) => {
+export const closeCondition = (position, candles, candleIndex) => {
   if (!position.isOpen) return false;
 
-  var dayIndex = moment(candle.date).format("dddd");
+  // const lastCandles = candles.slice(candleIndex - 4, candleIndex + 1);
+  // const filterLastRallyCandles = lastCandles.filter((c) => isDropCandle(c));
 
-  return dayIndex === "Thursday";
+  // return filterLastRallyCandles.length > 4;
+  return false;
 };
 
-export const openCondition = (candle, position) => {
+export const openCondition = (position, candles, candleIndex) => {
   if (position.isOpen) return false;
 
-  var dayIndex = moment(candle.date).format("dddd");
+  const lastCandles = candles.slice(candleIndex - 4, candleIndex + 1);
+  const filterLastRallyCandles = lastCandles.filter((c) => isRallyCandle(c));
 
-  return dayIndex === "Friday";
+  return filterLastRallyCandles.length > 4;
+};
+
+export const isMomentumCandle = (candle) => {
+  return Math.abs(candle.close - candle.open) > (candle.high - candle.low) / 2;
+};
+
+export const isRallyCandle = (candle) => {
+  return candle.close - candle.open > 0;
+};
+
+export const isDropCandle = (candle) => {
+  return candle.close - candle.open < 0;
 };
